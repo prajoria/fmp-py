@@ -184,7 +184,7 @@ The `fmp-py` project is a comprehensive Python library designed to interface wit
 
 ---
 
-##  Getting Started
+## Getting Started
 
 **System Requirements:**
 
@@ -209,6 +209,24 @@ The `fmp-py` project is a comprehensive Python library designed to interface wit
 > ```console
 > $ poetry install
 > ```
+>
+> 4. **Set up environment variables** (for Stock Analysis examples):
+> ```console
+> $ cp .env.example .env
+> ```
+> Edit `.env` and add your FMP API key:
+> ```
+> FMP_API_KEY=your_actual_api_key_here
+> ```
+> Get a free API key from: https://financialmodelingprep.com/
+
+### Security
+
+⚠️ **Important Security Note**: Never commit your `.env` file or API keys to version control!
+
+- The `.env` file is already included in `.gitignore` to prevent accidental commits
+- Use environment variables for sensitive configuration
+- The provided examples use `python-dotenv` to load API keys securely
 
 ###  Usage
 
