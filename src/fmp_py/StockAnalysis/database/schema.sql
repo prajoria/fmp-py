@@ -696,7 +696,7 @@ SELECT
     km.dividend_yield,
     km.roe,
     fr.return_on_assets,
-    fr.debt_to_equity,
+    fr.debt_equity_ratio,
     fr.current_ratio,
     fr.quick_ratio
 FROM key_metrics km
