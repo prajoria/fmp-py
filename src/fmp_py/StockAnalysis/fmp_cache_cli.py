@@ -50,6 +50,48 @@ class FMPCacheCLI:
         self.cache_manager = CacheManager()
         self.api = FMPCacheAPI()
     
+    def _parse_symbols_input(self, symbols_input):
+        """
+        Parse symbols input which can be:
+        - Single symbol: 'AAPL'
+        - Comma-separated symbols: 'AAPL,MSFT,GOOGL'
+        - Space-separated symbols: 'AAPL MSFT GOOGL'
+        - File path: 'stocks.txt'
+        """
+        if not symbols_input:
+            return []
+        
+        # Check if it's a file path
+        if os.path.isfile(symbols_input):
+            try:
+                with open(symbols_input, 'r') as f:
+                    symbols = []
+                    for line in f:
+                        line = line.strip().upper()
+                        if line and not line.startswith('#'):
+                            # Handle comma-separated in file
+                            if ',' in line:
+                                symbols.extend([s.strip() for s in line.split(',') if s.strip()])
+                            else:
+                                symbols.append(line)
+                    return symbols
+            except Exception as e:
+                print(f"❌ Error reading symbols file: {e}")
+                return []
+        else:
+            # Parse as symbol string(s)
+            symbols_input = symbols_input.upper().strip()
+            
+            # Handle comma-separated
+            if ',' in symbols_input:
+                return [s.strip() for s in symbols_input.split(',') if s.strip()]
+            # Handle space-separated
+            elif ' ' in symbols_input:
+                return [s.strip() for s in symbols_input.split() if s.strip()]
+            # Single symbol
+            else:
+                return [symbols_input]
+    
     def fetch_command(self, args):
         """Handle fetch command"""
         print("🚀 FMP Cache Data Fetcher")
@@ -62,6 +104,14 @@ class FMPCacheCLI:
             print(f"❌ Error: {e}")
             print("Set FMP_API_KEY environment variable or use --api-key")
             return 1
+        
+        # Parse symbols input
+        symbols = self._parse_symbols_input(args.symbols)
+        if not symbols:
+            print("❌ No valid symbols provided")
+            return 1
+        
+        print(f"📊 Symbols to process: {', '.join(symbols)}")
         
         # Parse date range
         if args.start_date and args.end_date:
@@ -76,7 +126,7 @@ class FMPCacheCLI:
         
         # Fetch data
         results = self.fetcher.fetch_batch(
-            args.symbols, start_date, end_date, args.force_refresh
+            symbols, start_date, end_date, args.force_refresh
         )
         
         if results:
@@ -310,6 +360,8 @@ def main():
         epilog="""
 Examples:
   %(prog)s fetch AAPL --days 365
+  %(prog)s fetch AAPL,MSFT,GOOGL --days 730
+  %(prog)s fetch "SPY,VOO,QQQ" --start-date 2023-01-01 --end-date 2024-01-01
   %(prog)s fetch stocks.txt --start-date 2023-01-01 --end-date 2024-01-01
   %(prog)s query AAPL profile
   %(prog)s query AAPL historical --from 2024-01-01 --to 2024-12-31
@@ -323,7 +375,7 @@ Examples:
     
     # Fetch command
     fetch_parser = subparsers.add_parser('fetch', help='Fetch stock data from FMP API')
-    fetch_parser.add_argument('symbols', help='Single symbol, comma-separated symbols, or file path')
+    fetch_parser.add_argument('symbols', help='Single symbol (AAPL), comma-separated (AAPL,MSFT,GOOGL), or file path')
     fetch_parser.add_argument('--start-date', type=str, help='Start date (YYYY-MM-DD)')
     fetch_parser.add_argument('--end-date', type=str, help='End date (YYYY-MM-DD)')
     fetch_parser.add_argument('--days', type=int, default=365, help='Days back from today (default: 365)')
