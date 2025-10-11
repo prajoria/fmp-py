@@ -3,5 +3,27 @@
         "tests"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    "python.defaultInterpreterPath": "/home/daaji/masterswork/git/FinRobot/finrobot_env/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.analysis.extraPaths": [
+        "./src"
+    ],
+    "files.watcherExclude": {
+        "**/.pytest_cache/**": true,
+        "**/htmlcov/**": true,
+        "**/__pycache__/**": true,
+        "**/.coverage": true
+    },
+    "python.testing.pytestPath": "/home/daaji/masterswork/git/FinRobot/finrobot_env/bin/pytest",
+    "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+    },
+    "terminal.integrated.env.osx": {
+        "PYTHONPATH": "${workspaceFolder}/src"
+    },
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH": "${workspaceFolder}\\src"
+    }
 }

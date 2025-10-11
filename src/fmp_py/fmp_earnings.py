@@ -6,7 +6,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-pd.set_option("future.no_silent_downcasting", True)
+# Set pandas option only if available (pandas 2.1+)
+try:
+    pd.set_option("future.no_silent_downcasting", True)
+except pd.errors.OptionError:
+    pass
 
 
 """
