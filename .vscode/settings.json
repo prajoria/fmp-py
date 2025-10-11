@@ -1,6 +1,8 @@
 {
     "python.testing.pytestArgs": [
-        "tests"
+        "tests",
+        "--tb=short",
+        "-v"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
@@ -10,6 +12,7 @@
     "python.analysis.extraPaths": [
         "./src"
     ],
+    "python.pythonPath": "/home/daaji/masterswork/git/FinRobot/finrobot_env/bin/python",
     "files.watcherExclude": {
         "**/.pytest_cache/**": true,
         "**/htmlcov/**": true,
@@ -17,6 +20,8 @@
         "**/.coverage": true
     },
     "python.testing.pytestPath": "/home/daaji/masterswork/git/FinRobot/finrobot_env/bin/pytest",
+    "python.envFile": "${workspaceFolder}/.env",
+    "python.testing.cwd": "${workspaceFolder}",
     "terminal.integrated.env.linux": {
         "PYTHONPATH": "${workspaceFolder}/src"
     },
