@@ -27,7 +27,7 @@ def upgrades_downgrades_consensus(self, symbol: str) -> UpgradesDowngrades:
 """
 
 
-class FMPUpgradesDowngrades(FmpBase):
+class FmpUpgradesDowngrades(FmpBase):
     def __init__(self, api_key: str = os.getenv("FMP_API_KEY")) -> None:
         super().__init__(api_key)
 

@@ -1,17 +1,17 @@
 import pandas as pd
 import pytest
 
-from fmp_py.fmp_upgrades_downgrades import FMPUpgradesDowngrades
+from fmp_py.fmp_upgrades_downgrades import FmpUpgradesDowngrades
 from fmp_py.models.upgrades_downgrades import UpgradesDowngrades
 
 
 @pytest.fixture
 def fmp_upgrades_downgrades():
-    return FMPUpgradesDowngrades()
+    return FmpUpgradesDowngrades()
 
 
 def test_fmp_upgrades_downgrades_init(fmp_upgrades_downgrades):
-    assert isinstance(fmp_upgrades_downgrades, FMPUpgradesDowngrades)
+    assert isinstance(fmp_upgrades_downgrades, FmpUpgradesDowngrades)
 
 
 def test_fmp_upgrades_downgrades_consensus(fmp_upgrades_downgrades):
