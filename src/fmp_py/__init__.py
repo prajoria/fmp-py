@@ -14,6 +14,7 @@ from .fmp_dividends import FmpDividends
 from .fmp_earnings import FmpEarnings
 from .fmp_financial_statements import FmpFinancialStatements
 from .fmp_forex import FmpForex
+from .fmp_historical_charts import FmpHistoricalCharts
 from .fmp_historical_data import FmpHistoricalData
 from .fmp_ipo_calendar import FmpIpoCalendar
 from .fmp_mergers_and_aquisitions import FmpMergersAndAquisitions
@@ -39,6 +40,7 @@ __all__ = [
     "FmpEarnings",
     "FmpFinancialStatements",
     "FmpForex",
+    "FmpHistoricalCharts",
     "FmpHistoricalData",
     "FmpIpoCalendar",
     "FmpMergersAndAquisitions",
