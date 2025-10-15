@@ -28,7 +28,7 @@ class DatabaseConfig:
         self.user = os.getenv('FMP_DB_USER', 'fmp_user')
         self.password = os.getenv('FMP_DB_PASSWORD', 'fmp_password')
         self.pool_name = os.getenv('FMP_DB_POOL_NAME', 'fmp_pool')
-        self.pool_size = int(os.getenv('FMP_DB_POOL_SIZE', '50'))
+        self.pool_size = int(os.getenv('FMP_DB_POOL_SIZE', '32'))  # MySQL connector max is 32
         self.pool_reset_session = True
         self.autocommit = False
         self.charset = 'utf8mb4'
