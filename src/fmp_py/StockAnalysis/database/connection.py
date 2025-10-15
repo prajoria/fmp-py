@@ -28,12 +28,16 @@ class DatabaseConfig:
         self.user = os.getenv('FMP_DB_USER', 'fmp_user')
         self.password = os.getenv('FMP_DB_PASSWORD', 'fmp_password')
         self.pool_name = os.getenv('FMP_DB_POOL_NAME', 'fmp_pool')
-        self.pool_size = int(os.getenv('FMP_DB_POOL_SIZE', '5'))
+        self.pool_size = int(os.getenv('FMP_DB_POOL_SIZE', '50'))
         self.pool_reset_session = True
         self.autocommit = False
         self.charset = 'utf8mb4'
         self.collation = 'utf8mb4_unicode_ci'
         self.use_unicode = True
+        # Additional connection pool settings
+        self.connect_timeout = int(os.getenv('FMP_DB_CONNECT_TIMEOUT', '60'))
+        self.read_timeout = int(os.getenv('FMP_DB_READ_TIMEOUT', '60'))
+        self.write_timeout = int(os.getenv('FMP_DB_WRITE_TIMEOUT', '60'))
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary for mysql.connector"""
@@ -46,7 +50,10 @@ class DatabaseConfig:
             'charset': self.charset,
             'collation': self.collation,
             'use_unicode': self.use_unicode,
-            'autocommit': self.autocommit
+            'autocommit': self.autocommit,
+            'connect_timeout': self.connect_timeout,
+            'read_timeout': self.read_timeout,
+            'write_timeout': self.write_timeout
         }
 
 
@@ -120,26 +127,47 @@ class DatabaseConnection:
         return self._connection_pool
     
     @contextmanager
-    def get_connection(self):
+    def get_connection(self, max_retries=3, retry_delay=1):
         """
-        Context manager for database connections
+        Context manager for database connections with retry logic
         
+        Args:
+            max_retries (int): Maximum number of retry attempts
+            retry_delay (int): Delay between retries in seconds
+            
         Yields:
             mysql.connector.connection.MySQLConnection: Database connection
         """
+        import time
+        
         connection = None
-        try:
-            connection = self.connection_pool.get_connection()
-            yield connection
-            connection.commit()
-        except Error as e:
-            if connection:
-                connection.rollback()
-            logger.error(f"Database error: {e}")
-            raise
-        finally:
-            if connection and connection.is_connected():
-                connection.close()
+        last_error = None
+        
+        for attempt in range(max_retries + 1):
+            try:
+                connection = self.connection_pool.get_connection()
+                yield connection
+                connection.commit()
+                return
+            except Error as e:
+                last_error = e
+                if connection:
+                    try:
+                        connection.rollback()
+                    except:
+                        pass
+                
+                # If it's a pool exhaustion error and we have retries left, wait and retry
+                if "pool exhausted" in str(e).lower() and attempt < max_retries:
+                    logger.warning(f"Connection pool exhausted, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    logger.error(f"Database error: {e}")
+                    raise
+            finally:
+                if connection and connection.is_connected():
+                    connection.close()
     
     @contextmanager
     def get_cursor(self, dictionary=True, buffered=False):

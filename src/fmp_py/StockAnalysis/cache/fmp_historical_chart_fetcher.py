@@ -351,7 +351,7 @@ class FmpHistoricalChartFetcher:
     
     def store_historical_data(self, symbol: str, historical_data: List[HistoricalPriceFull]) -> int:
         """
-        Store historical price data in database
+        Store historical price data in database using batch operations
         
         Args:
             symbol: Stock symbol
@@ -363,6 +363,69 @@ class FmpHistoricalChartFetcher:
         if not historical_data:
             return 0
         
+        # Prepare batch data for executemany
+        batch_data = []
+        for price_data in historical_data:
+            try:
+                batch_data.append((
+                    symbol.upper(),
+                    price_data.date,
+                    price_data.open,
+                    price_data.high,
+                    price_data.low,
+                    price_data.close,
+                    price_data.adj_close,
+                    price_data.volume,
+                    price_data.unadjusted_volume,
+                    price_data.change,
+                    price_data.change_percent,
+                    price_data.vwap,
+                    price_data.label,
+                    price_data.change_over_time
+                ))
+            except Exception as e:
+                logger.error(f"Error preparing data for {symbol} on {price_data.date}: {e}")
+                continue
+        
+        if not batch_data:
+            return 0
+        
+        try:
+            # Use batch insert with a single connection
+            rows_affected = self.db.execute_many("""
+                INSERT INTO historical_prices_daily (
+                    symbol, date, `open`, high, low, `close`, adj_close, volume,
+                    unadjusted_volume, `change`, change_percent, vwap, label, change_over_time
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                `open` = VALUES(`open`), high = VALUES(high), low = VALUES(low),
+                `close` = VALUES(`close`), adj_close = VALUES(adj_close), volume = VALUES(volume),
+                unadjusted_volume = VALUES(unadjusted_volume), `change` = VALUES(`change`),
+                change_percent = VALUES(change_percent), vwap = VALUES(vwap),
+                label = VALUES(label), change_over_time = VALUES(change_over_time),
+                cached_at = NOW()
+            """, batch_data)
+            
+            stored_count = len(batch_data)  # executemany doesn't return meaningful rowcount for ON DUPLICATE KEY
+            logger.info(f"Stored {stored_count}/{len(historical_data)} records for {symbol}")
+            return stored_count
+            
+        except Exception as e:
+            logger.error(f"Error batch storing price data for {symbol}: {e}")
+            # Fallback to individual inserts on batch failure
+            return self._store_historical_data_individual(symbol, historical_data)
+    
+    def _store_historical_data_individual(self, symbol: str, historical_data: List[HistoricalPriceFull]) -> int:
+        """
+        Fallback method: Store historical data one record at a time
+        
+        Args:
+            symbol: Stock symbol
+            historical_data: List of historical price data
+            
+        Returns:
+            Number of records stored
+        """
         stored_count = 0
         
         for price_data in historical_data:
@@ -401,7 +464,7 @@ class FmpHistoricalChartFetcher:
                 logger.error(f"Error storing price data for {symbol} on {price_data.date}: {e}")
                 continue
         
-        logger.info(f"Stored {stored_count}/{len(historical_data)} records for {symbol}")
+        logger.info(f"Stored {stored_count}/{len(historical_data)} records for {symbol} (individual mode)")
         return stored_count
     
     def fetch_symbol_data(self, symbol: str, start_date: Optional[date] = None, 
