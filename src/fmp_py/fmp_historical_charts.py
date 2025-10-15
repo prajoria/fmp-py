@@ -154,7 +154,7 @@ class FmpHistoricalCharts(FmpBase):
         Raises:
             ValueError: If no data is found for the given symbol
         """
-        url = f"v3/historical-price-eod/full/{symbol}"
+        url = f"api/v3/historical-price-full/{symbol}"
         params = {}
         
         if from_date:
@@ -164,11 +164,11 @@ class FmpHistoricalCharts(FmpBase):
 
         try:
             response = self.get_request(url, params)
-            if not response:
+            if not response or not response.get('historical'):
                 raise ValueError(f"No data found for symbol: {symbol}")
 
             historical_data = []
-            for item in response:
+            for item in response.get('historical', []):
                 data_dict = {
                     "date": self.clean_value(item.get("date", ""), str),
                     "open": self.clean_value(item.get("open", 0.0), float),
@@ -208,7 +208,7 @@ class FmpHistoricalCharts(FmpBase):
         Returns:
             pd.DataFrame: DataFrame containing comprehensive historical price data
         """
-        url = f"v3/historical-price-eod/full/{symbol}"
+        url = f"api/v3/historical-price-full/{symbol}"
         params = {}
         
         if from_date:
@@ -217,10 +217,10 @@ class FmpHistoricalCharts(FmpBase):
             params["to"] = to_date
 
         response = self.get_request(url, params)
-        if not response:
+        if not response or not response.get('historical'):
             raise ValueError(f"No data found for symbol: {symbol}")
 
-        df = pd.DataFrame(response)
+        df = pd.DataFrame(response.get('historical', []))
         df["date"] = pd.to_datetime(df["date"])
         
         # Rename columns to match our naming convention

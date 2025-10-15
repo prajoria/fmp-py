@@ -9,7 +9,7 @@ from typing import Dict, Any
 load_dotenv()
 
 FMP_API_KEY = os.getenv("FMP_API_KEY", "")
-FMP_BASE_URL = "https://financialmodelingprep.com/api/"
+FMP_BASE_URL = "https://financialmodelingprep.com/"
 
 
 class FmpBase:

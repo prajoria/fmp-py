@@ -368,7 +368,7 @@ class FmpHistoricalChartFetcher:
         for price_data in historical_data:
             try:
                 self.db.execute_update("""
-                    INSERT INTO historical_price_full_daily (
+                    INSERT INTO historical_prices_daily (
                         symbol, date, `open`, high, low, `close`, adj_close, volume,
                         unadjusted_volume, `change`, change_percent, vwap, label, change_over_time
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -378,7 +378,7 @@ class FmpHistoricalChartFetcher:
                     unadjusted_volume = VALUES(unadjusted_volume), `change` = VALUES(`change`),
                     change_percent = VALUES(change_percent), vwap = VALUES(vwap),
                     label = VALUES(label), change_over_time = VALUES(change_over_time),
-                    updated_at = NOW()
+                    cached_at = NOW()
                 """, (
                     symbol.upper(),
                     price_data.date,
@@ -386,14 +386,14 @@ class FmpHistoricalChartFetcher:
                     price_data.high,
                     price_data.low,
                     price_data.close,
-                    price_data.adjClose,
+                    price_data.adj_close,
                     price_data.volume,
-                    price_data.unadjustedVolume,
+                    price_data.unadjusted_volume,
                     price_data.change,
-                    price_data.changePercent,
+                    price_data.change_percent,
                     price_data.vwap,
                     price_data.label,
-                    price_data.changeOverTime
+                    price_data.change_over_time
                 ))
                 stored_count += 1
                 
