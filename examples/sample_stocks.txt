@@ -1,0 +1,32 @@
+# Sample stock symbols for FMP Historical Chart Fetcher
+# Lines starting with # are comments and will be ignored
+# One symbol per line
+
+# Large Cap Tech
+AAPL
+MSFT
+GOOGL
+AMZN
+META
+TSLA
+NVDA
+
+# Finance
+JPM
+BAC
+WFC
+
+# Healthcare
+JNJ
+PFE
+UNH
+
+# Consumer
+WMT
+HD
+PG
+
+# ETFs
+SPY
+QQQ
+IWM

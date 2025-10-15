@@ -15,6 +15,13 @@ from .fmp_earnings import FmpEarnings
 from .fmp_financial_statements import FmpFinancialStatements
 from .fmp_forex import FmpForex
 from .fmp_historical_charts import FmpHistoricalCharts
+
+# Import cached client if available
+try:
+    from .StockAnalysis.client.cached_fmp_historical_charts import CachedFmpHistoricalCharts
+    _CACHED_AVAILABLE = True
+except ImportError:
+    _CACHED_AVAILABLE = False
 from .fmp_historical_data import FmpHistoricalData
 from .fmp_ipo_calendar import FmpIpoCalendar
 from .fmp_mergers_and_aquisitions import FmpMergersAndAquisitions

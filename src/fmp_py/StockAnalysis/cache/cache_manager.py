@@ -6,7 +6,7 @@ Intelligent cache validation and management for FMP data
 
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Any
-from database.connection import get_db
+from fmp_py.StockAnalysis.database.connection import get_db
 
 
 class CacheManager:

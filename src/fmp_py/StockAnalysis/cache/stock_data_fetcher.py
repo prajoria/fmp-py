@@ -19,7 +19,7 @@ import argparse
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database.connection import get_db
+from fmp_py.StockAnalysis.database.connection import get_db
 from utils.date_utils import parse_date_range, format_date
 
 
