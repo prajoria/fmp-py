@@ -87,7 +87,7 @@ def setup_database():
         # Test the setup by checking tables
         logger.info("Verifying table creation...")
         test_tables = [
-            'historical_price_full_daily',
+            'historical_prices_daily',
             'fetch_watermarks', 
             'popular_stocks',
             'sp500_constituents'

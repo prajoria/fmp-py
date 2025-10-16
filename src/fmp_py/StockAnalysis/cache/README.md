@@ -11,13 +11,13 @@ A comprehensive historical price data fetcher with watermark tracking and crash 
 - **Batch Processing**: Supports single stock or batch processing from lists/files
 - **Popular Stocks**: Includes curated list of popular stocks
 - **Progress Monitoring**: Track fetch progress and statistics
-- **Database Storage**: Stores data in `historical_price_full_daily` table
+- **Database Storage**: Stores data in `historical_prices_daily` table
 
 ## Database Schema
 
 The fetcher creates and uses these tables:
 
-- **`historical_price_full_daily`**: Stores comprehensive historical price data
+- **`historical_prices_daily`**: Stores comprehensive historical price data
 - **`fetch_watermarks`**: Tracks fetch progress for each symbol
 - **`fetch_sessions`**: Records batch processing sessions
 - **`popular_stocks`**: Maintains list of popular stocks

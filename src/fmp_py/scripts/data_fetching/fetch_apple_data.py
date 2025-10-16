@@ -12,14 +12,14 @@ import requests
 import json
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables
-load_dotenv('/home/daaji/masterswork/git/fmp-py/.env')
+# Load environment variables from project root
+project_root = Path(__file__).parent.parent.parent.parent.parent
+load_dotenv(project_root / '.env')
 
-# Add the StockAnalysis path
-sys.path.append('/home/daaji/masterswork/git/fmp-py/src/fmp_py/StockAnalysis')
-
-from database.connection import get_db
+# Use relative imports
+from ...StockAnalysis.database.connection import get_db
 
 class FMPDataFetcher:
     """Fetch and cache FMP data for Apple"""

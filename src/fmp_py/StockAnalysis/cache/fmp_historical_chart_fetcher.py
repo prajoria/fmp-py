@@ -6,7 +6,7 @@ Comprehensive historical price data fetcher with watermark tracking and crash re
 
 Features:
 - Fetches full historical price data using FmpHistoricalCharts
-- Stores data in historical_price_full_daily table
+- Stores data in historical_prices_daily table
 - Maintains watermarks for crash recovery
 - API rate limiting and retry logic
 - Supports single stock or batch processing

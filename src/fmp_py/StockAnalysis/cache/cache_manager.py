@@ -20,19 +20,15 @@ class CacheManager:
     - Bulk cache validation
     """
     
-    # Default expiration policies (in hours)
+    # Default expiration policies (in hours) - Only for existing tables
     EXPIRATION_POLICIES = {
-        'quotes': 0.08,  # 5 minutes for real-time quotes
-        'company_profiles': 168,  # 1 week for company profiles
-        'income_statements': 8760,  # 1 year for annual statements
-        'balance_sheets': 8760,  # 1 year for annual statements
-        'cash_flow_statements': 8760,  # 1 year for annual statements
-        'financial_ratios': 2160,  # 3 months for ratios
-        'key_metrics': 2160,  # 3 months for metrics
         'historical_prices_daily': 24,  # 1 day for historical prices
-        'stock_news': 72,  # 3 days for news
-        'earnings_calendar': 24,  # 1 day for earnings calendar
-        'analyst_ratings': 168,  # 1 week for analyst ratings
+        'companies': 8760,  # 1 year for company info
+        'company_executives': 8760,  # 1 year for executive info
+        'sp500_constituents': 720,  # 1 month for S&P 500 list
+        'api_request_log': 168,  # 1 week for API logs
+        'fetch_sessions': 168,  # 1 week for fetch sessions
+        'fetch_watermarks': 24,  # 1 day for watermarks
     }
     
     def __init__(self):
@@ -45,7 +41,7 @@ class CacheManager:
         
         Args:
             symbol: Stock symbol
-            data_type: Type of data to check (e.g., 'quotes', 'historical_prices_daily')
+            data_type: Type of data to check (e.g., 'historical_prices_daily', 'companies')
             start_date: Start date for date-range data
             end_date: End date for date-range data
         
@@ -63,7 +59,7 @@ class CacheManager:
         }
         
         try:
-            if data_type in ['quotes', 'company_profiles']:
+            if data_type in ['companies', 'company_executives']:
                 # Single record data types
                 result = self._check_single_record_cache(symbol, data_type)
             
@@ -72,13 +68,9 @@ class CacheManager:
                 if start_date and end_date:
                     result = self._check_date_range_cache(symbol, data_type, start_date, end_date)
             
-            elif data_type in ['income_statements', 'balance_sheets', 'cash_flow_statements']:
-                # Annual statement data
-                result = self._check_annual_statements_cache(symbol, data_type, start_date, end_date)
-            
-            elif data_type in ['stock_news']:
-                # News data (recent only)
-                result = self._check_news_cache(symbol, start_date or datetime.now() - timedelta(days=30))
+            elif data_type in ['sp500_constituents']:
+                # S&P 500 constituents (symbol-based lookup)
+                result = self._check_sp500_cache(symbol, data_type)
             
         except Exception as e:
             print(f"Warning: Error checking cache for {symbol} {data_type}: {e}")
@@ -86,7 +78,7 @@ class CacheManager:
         return result
     
     def _check_single_record_cache(self, symbol: str, data_type: str) -> Dict[str, Any]:
-        """Check cache for single-record data types (quotes, profiles)"""
+        """Check cache for single-record data types (companies, executives)"""
         result = {
             'is_fresh': False,
             'is_complete': False,
@@ -99,23 +91,65 @@ class CacheManager:
         # Get expiration policy
         expiration_hours = self.EXPIRATION_POLICIES.get(data_type, 24)
         
+        # For companies and executives, check updated_at instead of expires_at
+        if data_type in ['companies', 'company_executives']:
+            cached_data = self.db.execute_query(f"""
+                SELECT updated_at, COUNT(*) as count
+                FROM {data_type}
+                WHERE symbol = %s
+                GROUP BY updated_at
+                ORDER BY updated_at DESC
+                LIMIT 1
+            """, (symbol,), fetch='one')
+            
+            if cached_data and cached_data['count'] > 0:
+                result['cached_count'] = cached_data['count']
+                result['last_updated'] = cached_data['updated_at']
+                
+                # Check if still fresh (based on expiration policy)
+                expiry_time = cached_data['updated_at'] + timedelta(hours=expiration_hours)
+                if expiry_time > datetime.now():
+                    result['is_fresh'] = True
+                    result['is_complete'] = True
+                    result['needs_refresh'] = False
+                    result['expires_at'] = expiry_time
+        
+        return result
+    
+    def _check_sp500_cache(self, symbol: str, data_type: str) -> Dict[str, Any]:
+        """Check cache for S&P 500 constituents data"""
+        result = {
+            'is_fresh': False,
+            'is_complete': False,
+            'cached_count': 0,
+            'last_updated': None,
+            'expires_at': None,
+            'needs_refresh': True
+        }
+        
+        # Get expiration policy
+        expiration_hours = self.EXPIRATION_POLICIES.get(data_type, 720)  # Default 1 month
+        
         cached_data = self.db.execute_query(f"""
-            SELECT cached_at, expires_at, COUNT(*) as count
+            SELECT updated_at, COUNT(*) as count
             FROM {data_type}
-            WHERE symbol = %s
-            GROUP BY cached_at, expires_at
-            ORDER BY cached_at DESC
+            WHERE symbol = %s AND is_active = TRUE
+            GROUP BY updated_at
+            ORDER BY updated_at DESC
             LIMIT 1
         """, (symbol,), fetch='one')
         
         if cached_data and cached_data['count'] > 0:
             result['cached_count'] = cached_data['count']
-            result['last_updated'] = cached_data['cached_at']
-            result['expires_at'] = cached_data['expires_at']
+            result['last_updated'] = cached_data['updated_at']
             
             # Check if still fresh
-            if cached_data['expires_at'] and cached_data['expires_at'] > datetime.now():
+            expiry_time = cached_data['updated_at'] + timedelta(hours=expiration_hours)
+            if expiry_time > datetime.now():
                 result['is_fresh'] = True
+                result['is_complete'] = True
+                result['needs_refresh'] = False
+                result['expires_at'] = expiry_time
                 result['is_complete'] = True
                 result['needs_refresh'] = False
         
@@ -328,7 +362,7 @@ class CacheManager:
                 stats['total_symbols'] = result['count']
             
             # Get freshness summary
-            for data_type in ['quotes', 'historical_prices_daily', 'stock_news']:
+            for data_type in ['historical_prices_daily']:  # Only existing tables with cache expiry
                 try:
                     expiration_hours = self.EXPIRATION_POLICIES.get(data_type, 24)
                     freshness_query = f"""

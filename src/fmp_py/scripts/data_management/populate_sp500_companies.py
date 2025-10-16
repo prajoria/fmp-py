@@ -7,14 +7,21 @@ import mysql.connector
 import requests
 import pandas as pd
 from io import StringIO
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables from project root
+project_root = Path(__file__).parent.parent.parent.parent.parent
+load_dotenv(project_root / '.env')
 
 # Database connection
 def get_db_connection():
     return mysql.connector.connect(
-        host='localhost',
-        user='fmp_user',
-        password='fmp_password',
-        database='fmp_cache'
+        host=os.getenv('FMP_DB_HOST', 'localhost'),
+        user=os.getenv('FMP_DB_USER', 'fmp_user'),
+        password=os.getenv('FMP_DB_PASSWORD', 'fmp_password'),
+        database=os.getenv('FMP_DB_NAME', 'fmp_cache')
     )
 
 def fetch_sp500_from_wikipedia():

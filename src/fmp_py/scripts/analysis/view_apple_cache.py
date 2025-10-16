@@ -9,14 +9,14 @@ import os
 import sys
 from datetime import datetime
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables
-load_dotenv('/home/daaji/masterswork/git/fmp-py/.env')
+# Load environment variables from project root
+project_root = Path(__file__).parent.parent.parent.parent.parent
+load_dotenv(project_root / '.env')
 
-# Add the StockAnalysis path
-sys.path.append('/home/daaji/masterswork/git/fmp-py/src/fmp_py/StockAnalysis')
-
-from database.connection import get_db
+# Use relative imports
+from ...StockAnalysis.database.connection import get_db
 
 class AppleCacheViewer:
     """View Apple data from MySQL cache"""
@@ -26,53 +26,49 @@ class AppleCacheViewer:
         self.symbol = "AAPL"
     
     def show_company_profile(self):
-        """Show company profile"""
-        print("\n🍎 APPLE INC. COMPANY PROFILE")
+        """Show company profile (using companies table)"""
+        print("\n🍎 APPLE INC. COMPANY INFO")
         print("=" * 60)
         
-        profile = self.db.execute_query("""
-            SELECT company_name, price, mkt_cap, industry, sector, website, 
-                   description, ceo, full_time_employees, country, cached_at
-            FROM company_profiles 
+        company = self.db.execute_query("""
+            SELECT name, exchange, exchange_short_name, type, currency, 
+                   country, is_etf, is_actively_trading, created_at, updated_at
+            FROM companies 
             WHERE symbol = %s
         """, (self.symbol,), fetch='one')
         
-        if profile:
-            print(f"Company: {profile['company_name']}")
-            print(f"Current Price: ${profile['price']:,.2f}")
-            print(f"Market Cap: ${profile['mkt_cap']:,.0f}")
-            print(f"Industry: {profile['industry']}")
-            print(f"Sector: {profile['sector']}")
-            print(f"CEO: {profile['ceo']}")
-            print(f"Employees: {profile['full_time_employees']:,}")
-            print(f"Country: {profile['country']}")
-            print(f"Website: {profile['website']}")
-            print(f"\nDescription: {profile['description'][:200]}...")
-            print(f"\nLast Updated: {profile['cached_at']}")
+        if company:
+            print(f"Company: {company['name']}")
+            print(f"Exchange: {company['exchange']} ({company['exchange_short_name']})")
+            print(f"Type: {company['type']}")
+            print(f"Currency: {company['currency']}")
+            print(f"Country: {company['country']}")
+            print(f"Is ETF: {company['is_etf']}")
+            print(f"Actively Trading: {company['is_actively_trading']}")
+            print(f"Created: {company['created_at']}")
+            print(f"Last Updated: {company['updated_at']}")
         else:
-            print("No profile data found")
+            print("No company data found")
     
     def show_latest_quote(self):
-        """Show latest quote"""
+        """Show latest quote (using historical prices)"""
         print("\n💰 CURRENT QUOTE")
         print("=" * 60)
         
         quote = self.db.execute_query("""
-            SELECT price, changes_percentage, `change`, day_low, day_high, 
-                   year_high, year_low, market_cap, volume, pe, eps, cached_at
-            FROM quotes 
+            SELECT `close` as price, `change`, change_percent, high, low, volume, date
+            FROM historical_prices_daily 
             WHERE symbol = %s
-            ORDER BY cached_at DESC LIMIT 1
+            ORDER BY date DESC LIMIT 1
         """, (self.symbol,), fetch='one')
         
         if quote:
-            print(f"Price: ${quote['price']:,.2f}" if quote['price'] else "Price: N/A")
-            print(f"Change: ${quote['change']:+,.2f} ({quote['changes_percentage']:+.2f}%)" if quote['change'] and quote['changes_percentage'] else "Change: N/A")
-            print(f"Day Range: ${quote['day_low']:,.2f} - ${quote['day_high']:,.2f}" if quote['day_low'] and quote['day_high'] else "Day Range: N/A")
-            print(f"52-Week Range: ${quote['year_low']:,.2f} - ${quote['year_high']:,.2f}" if quote['year_low'] and quote['year_high'] else "52-Week Range: N/A")
-            print(f"Market Cap: ${quote['market_cap']:,.0f}" if quote['market_cap'] else "Market Cap: N/A")
+            print(f"Latest Price: ${quote['price']:,.2f}" if quote['price'] else "Price: N/A")
+            print(f"Change: ${quote['change']:+,.2f} ({quote['change_percent']:+.2f}%)" if quote['change'] and quote['change_percent'] else "Change: N/A")
+            print(f"Day High: ${quote['high']:,.2f}" if quote['high'] else "High: N/A")
+            print(f"Day Low: ${quote['low']:,.2f}" if quote['low'] else "Low: N/A")
             print(f"Volume: {quote['volume']:,}" if quote['volume'] else "Volume: N/A")
-            print(f"P/E Ratio: {quote['pe']:.2f}" if quote['pe'] else "P/E Ratio: N/A")
+            print(f"Date: {quote['date']}" if quote['date'] else "Date: N/A")
             print(f"EPS: ${quote['eps']:.2f}" if quote['eps'] else "EPS: N/A")
             print(f"Last Updated: {quote['cached_at']}")
         else:
@@ -196,9 +192,8 @@ class AppleCacheViewer:
         print("=" * 60)
         
         tables = [
-            'companies', 'company_profiles', 'quotes', 'income_statements',
-            'balance_sheets', 'cash_flow_statements', 'financial_ratios',
-            'key_metrics', 'historical_prices_daily', 'stock_news'
+            'companies', 'company_executives', 'historical_prices_daily', 
+            'sp500_constituents', 'api_request_log', 'fetch_sessions', 'fetch_watermarks'
         ]
         
         total_records = 0

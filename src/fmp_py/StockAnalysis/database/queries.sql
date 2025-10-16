@@ -1,5 +1,6 @@
--- Useful queries for FMP cache database
+-- Useful queries for FMP cache database (Clean Version)
 -- Use these queries to monitor and maintain your cache
+-- Updated: 2025-10-15 - Only includes tables that actually exist
 
 -- ============================================================================
 -- CACHE STATISTICS
@@ -12,14 +13,14 @@ SELECT
 FROM companies
 UNION ALL
 SELECT 
-    'Companies with Profiles' as metric,
+    'S&P 500 Constituents' as metric,
     COUNT(*) as value
-FROM company_profiles
+FROM sp500_constituents
 UNION ALL
 SELECT 
-    'Cached Quotes' as metric,
+    'Company Executives' as metric,
     COUNT(*) as value
-FROM quotes
+FROM company_executives
 UNION ALL
 SELECT 
     'Historical Daily Records' as metric,
@@ -27,29 +28,29 @@ SELECT
 FROM historical_prices_daily
 UNION ALL
 SELECT 
-    'Income Statements' as metric,
+    'API Request Logs' as metric,
     COUNT(*) as value
-FROM income_statements
+FROM api_request_log
 UNION ALL
 SELECT 
-    'Balance Sheets' as metric,
+    'Fetch Sessions' as metric,
     COUNT(*) as value
-FROM balance_sheets
+FROM fetch_sessions
 UNION ALL
 SELECT 
-    'Cash Flow Statements' as metric,
+    'Fetch Watermarks' as metric,
     COUNT(*) as value
-FROM cash_flow_statements;
+FROM fetch_watermarks;
 
--- Cache hit rate
+-- API request statistics
 SELECT 
     endpoint,
     COUNT(*) as total_requests,
-    SUM(from_cache) as cache_hits,
-    ROUND(SUM(from_cache) / COUNT(*) * 100, 2) as hit_rate_percent,
-    ROUND(AVG(response_time_ms), 2) as avg_response_time_ms
+    ROUND(AVG(response_time_ms), 2) as avg_response_time_ms,
+    MAX(response_time_ms) as max_response_time_ms,
+    MIN(response_time_ms) as min_response_time_ms
 FROM api_request_log
-WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+WHERE response_time_ms IS NOT NULL
 GROUP BY endpoint
 ORDER BY total_requests DESC;
 
@@ -57,191 +58,204 @@ ORDER BY total_requests DESC;
 -- DATA FRESHNESS
 -- ============================================================================
 
--- Check expired cache entries
-SELECT 
-    'Expired Quotes' as cache_type,
-    COUNT(*) as count
-FROM quotes
-WHERE expires_at < NOW()
-UNION ALL
-SELECT 
-    'Expired Company Profiles' as cache_type,
-    COUNT(*) as count
-FROM company_profiles
-WHERE expires_at < NOW()
-UNION ALL
-SELECT 
-    'Expired Cache Metadata' as cache_type,
-    COUNT(*) as count
-FROM cache_metadata
-WHERE expires_at < NOW();
-
--- Recently cached data
-SELECT 
-    'Quotes' as data_type,
-    COUNT(*) as records,
-    MAX(cached_at) as last_cached
-FROM quotes
-WHERE cached_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
-UNION ALL
-SELECT 
-    'Historical Prices' as data_type,
-    COUNT(*) as records,
-    MAX(cached_at) as last_cached
-FROM historical_prices_daily
-WHERE cached_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
-UNION ALL
-SELECT 
-    'Company Profiles' as data_type,
-    COUNT(*) as records,
-    MAX(cached_at) as last_cached
-FROM company_profiles
-WHERE cached_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR);
-
--- ============================================================================
--- TOP COMPANIES BY DATA
--- ============================================================================
-
--- Companies with most complete data
-SELECT 
-    c.symbol,
-    c.name,
-    c.sector,
-    COUNT(DISTINCT hpd.date) as daily_prices_count,
-    COUNT(DISTINCT is_t.date) as income_stmt_count,
-    COUNT(DISTINCT bs.date) as balance_sheet_count,
-    COUNT(DISTINCT cf.date) as cashflow_count,
-    (cp.symbol IS NOT NULL) as has_profile
-FROM companies c
-LEFT JOIN historical_prices_daily hpd ON c.symbol = hpd.symbol
-LEFT JOIN income_statements is_t ON c.symbol = is_t.symbol
-LEFT JOIN balance_sheets bs ON c.symbol = bs.symbol
-LEFT JOIN cash_flow_statements cf ON c.symbol = cf.symbol
-LEFT JOIN company_profiles cp ON c.symbol = cp.symbol
-GROUP BY c.symbol, c.name, c.sector, has_profile
-ORDER BY 
-    (COUNT(DISTINCT hpd.date) + 
-     COUNT(DISTINCT is_t.date) + 
-     COUNT(DISTINCT bs.date) + 
-     COUNT(DISTINCT cf.date)) DESC
-LIMIT 20;
-
--- Most queried symbols
+-- Historical price data freshness
 SELECT 
     symbol,
-    COUNT(*) as request_count,
-    MAX(created_at) as last_requested
-FROM api_request_log
-WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-    AND symbol IS NOT NULL
+    MAX(date) as latest_date,
+    COUNT(*) as total_records,
+    DATEDIFF(CURDATE(), MAX(date)) as days_old
+FROM historical_prices_daily
 GROUP BY symbol
-ORDER BY request_count DESC
+ORDER BY days_old DESC, symbol;
+
+-- Fetch watermark status
+SELECT 
+    symbol,
+    fetch_type,
+    latest_date,
+    fetch_status,
+    total_records,
+    error_count,
+    DATEDIFF(CURDATE(), latest_date) as days_behind
+FROM fetch_watermarks
+ORDER BY days_behind DESC, symbol;
+
+-- ============================================================================
+-- TOP PERFORMERS
+-- ============================================================================
+
+-- Latest prices for S&P 500 stocks
+SELECT 
+    sp.symbol,
+    sp.name,
+    sp.sector,
+    hpd.close as latest_price,
+    hpd.change as daily_change,
+    hpd.change_percent as daily_change_percent,
+    hpd.volume as daily_volume,
+    hpd.date as price_date
+FROM sp500_constituents sp
+JOIN historical_prices_daily hpd ON sp.symbol = hpd.symbol
+WHERE hpd.date = (
+    SELECT MAX(date) 
+    FROM historical_prices_daily hpd2 
+    WHERE hpd2.symbol = sp.symbol
+)
+ORDER BY hpd.change_percent DESC
 LIMIT 20;
 
--- ============================================================================
--- FINANCIAL DATA ANALYSIS
--- ============================================================================
-
--- Latest financial metrics for top companies by market cap
+-- Biggest movers (S&P 500)
 SELECT 
-    cp.symbol,
-    cp.company_name,
-    cp.sector,
-    cp.mkt_cap,
-    km.pe_ratio,
-    km.pb_ratio,
-    km.roe,
-    fr.debt_to_equity,
-    fr.current_ratio,
-    km.dividend_yield
-FROM company_profiles cp
-LEFT JOIN key_metrics km ON cp.symbol = km.symbol
-    AND km.id = (SELECT MAX(id) FROM key_metrics WHERE symbol = cp.symbol)
-LEFT JOIN financial_ratios fr ON cp.symbol = fr.symbol
-    AND fr.id = (SELECT MAX(id) FROM financial_ratios WHERE symbol = cp.symbol)
-WHERE cp.mkt_cap IS NOT NULL
-ORDER BY cp.mkt_cap DESC
-LIMIT 50;
-
--- Companies with recent earnings
-SELECT 
-    ec.symbol,
-    c.name,
-    ec.date as earnings_date,
-    ec.eps,
-    ec.eps_estimated,
-    (ec.eps - ec.eps_estimated) as eps_surprise,
-    ROUND((ec.eps - ec.eps_estimated) / ec.eps_estimated * 100, 2) as surprise_percent
-FROM earnings_calendar ec
-JOIN companies c ON ec.symbol = c.symbol
-WHERE ec.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    AND ec.eps IS NOT NULL
-    AND ec.eps_estimated IS NOT NULL
-ORDER BY ec.date DESC
-LIMIT 30;
+    sp.symbol,
+    sp.name,
+    sp.sector,
+    hpd.close as latest_price,
+    hpd.change_percent as daily_change_percent,
+    hpd.volume as daily_volume,
+    hpd.date as price_date
+FROM sp500_constituents sp
+JOIN historical_prices_daily hpd ON sp.symbol = hpd.symbol
+WHERE hpd.date = (
+    SELECT MAX(date) 
+    FROM historical_prices_daily hpd2 
+    WHERE hpd2.symbol = sp.symbol
+)
+ORDER BY ABS(hpd.change_percent) DESC
+LIMIT 20;
 
 -- ============================================================================
 -- SECTOR ANALYSIS
 -- ============================================================================
 
--- Average metrics by sector
+-- Average performance by sector (S&P 500)
 SELECT 
-    cp.sector,
-    COUNT(DISTINCT cp.symbol) as company_count,
-    ROUND(AVG(km.pe_ratio), 2) as avg_pe,
-    ROUND(AVG(km.pb_ratio), 2) as avg_pb,
-    ROUND(AVG(km.roe), 4) as avg_roe,
-    ROUND(AVG(fr.debt_to_equity), 2) as avg_debt_to_equity,
-    ROUND(AVG(km.dividend_yield), 4) as avg_dividend_yield
-FROM company_profiles cp
-LEFT JOIN key_metrics km ON cp.symbol = km.symbol
-    AND km.id = (SELECT MAX(id) FROM key_metrics WHERE symbol = cp.symbol)
-LEFT JOIN financial_ratios fr ON cp.symbol = fr.symbol
-    AND fr.id = (SELECT MAX(id) FROM financial_ratios WHERE symbol = cp.symbol)
-WHERE cp.sector IS NOT NULL
-GROUP BY cp.sector
-ORDER BY company_count DESC;
+    sp.sector,
+    COUNT(*) as num_stocks,
+    ROUND(AVG(hpd.change_percent), 2) as avg_daily_change_percent,
+    ROUND(MIN(hpd.change_percent), 2) as min_change_percent,
+    ROUND(MAX(hpd.change_percent), 2) as max_change_percent,
+    SUM(hpd.volume) as total_volume
+FROM sp500_constituents sp
+JOIN historical_prices_daily hpd ON sp.symbol = hpd.symbol
+WHERE hpd.date = (
+    SELECT MAX(date) 
+    FROM historical_prices_daily hpd2 
+    WHERE hpd2.symbol = sp.symbol
+)
+GROUP BY sp.sector
+ORDER BY avg_daily_change_percent DESC;
 
--- Recent sector performance
+-- ============================================================================
+-- DATA QUALITY CHECKS
+-- ============================================================================
+
+-- Missing data check
 SELECT 
-    sector,
-    changes_percentage,
-    date
-FROM sector_performance
-WHERE date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-ORDER BY date DESC, changes_percentage DESC;
+    'Symbols in companies but not in historical_prices_daily' as check_type,
+    COUNT(*) as count
+FROM companies c
+LEFT JOIN historical_prices_daily hpd ON c.symbol = hpd.symbol
+WHERE hpd.symbol IS NULL
+UNION ALL
+SELECT 
+    'Symbols in sp500_constituents but not in companies' as check_type,
+    COUNT(*) as count
+FROM sp500_constituents sp
+LEFT JOIN companies c ON sp.symbol = c.symbol
+WHERE c.symbol IS NULL
+UNION ALL
+SELECT 
+    'Symbols in historical_prices_daily but not in companies' as check_type,
+    COUNT(*) as count
+FROM (
+    SELECT DISTINCT symbol FROM historical_prices_daily
+) hpd
+LEFT JOIN companies c ON hpd.symbol = c.symbol
+WHERE c.symbol IS NULL;
+
+-- Duplicate data check
+SELECT 
+    'Duplicate historical_prices_daily records' as check_type,
+    COUNT(*) - COUNT(DISTINCT symbol, date) as duplicates
+FROM historical_prices_daily;
+
+-- Volume anomalies (volume = 0 or extremely high)
+SELECT 
+    symbol,
+    date,
+    volume,
+    'Zero volume' as anomaly_type
+FROM historical_prices_daily
+WHERE volume = 0
+UNION ALL
+SELECT 
+    symbol,
+    date,
+    volume,
+    'Extremely high volume' as anomaly_type
+FROM historical_prices_daily
+WHERE volume > (
+    SELECT AVG(volume) * 100 
+    FROM historical_prices_daily 
+    WHERE volume > 0
+)
+ORDER BY symbol, date;
 
 -- ============================================================================
 -- MAINTENANCE QUERIES
 -- ============================================================================
 
--- Delete expired cache entries
--- DELETE FROM quotes WHERE expires_at < NOW();
--- DELETE FROM company_profiles WHERE expires_at < NOW();
--- DELETE FROM cache_metadata WHERE expires_at < NOW();
+-- Clean old API request logs (older than 30 days)
+-- DELETE FROM api_request_log WHERE request_time < DATE_SUB(NOW(), INTERVAL 30 DAY);
 
--- Delete old API request logs (keep last 30 days)
--- DELETE FROM api_request_log WHERE created_at < DATE_SUB(NOW(), INTERVAL 30 DAY);
+-- Clean old fetch sessions (older than 30 days)
+-- DELETE FROM fetch_sessions WHERE start_time < DATE_SUB(NOW(), INTERVAL 30 DAY);
+
+-- Update table statistics
+-- ANALYZE TABLE companies;
+-- ANALYZE TABLE historical_prices_daily;
+-- ANALYZE TABLE sp500_constituents;
 
 -- Optimize tables
--- OPTIMIZE TABLE quotes;
+-- OPTIMIZE TABLE companies;
 -- OPTIMIZE TABLE historical_prices_daily;
--- OPTIMIZE TABLE company_profiles;
--- OPTIMIZE TABLE api_request_log;
+-- OPTIMIZE TABLE sp500_constituents;
 
--- Get database size
-SELECT 
-    table_schema as 'Database',
-    ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) as 'Size (MB)'
-FROM information_schema.tables
-WHERE table_schema = 'fmp_cache'
-GROUP BY table_schema;
+-- ============================================================================
+-- USEFUL AGGREGATIONS
+-- ============================================================================
 
--- Table sizes
+-- Daily trading summary
 SELECT 
-    table_name as 'Table',
-    ROUND(((data_length + index_length) / 1024 / 1024), 2) as 'Size (MB)',
-    table_rows as 'Rows'
-FROM information_schema.tables
-WHERE table_schema = 'fmp_cache'
-ORDER BY (data_length + index_length) DESC;
+    date,
+    COUNT(*) as stocks_traded,
+    ROUND(AVG(change_percent), 2) as avg_change_percent,
+    ROUND(MIN(change_percent), 2) as min_change_percent,
+    ROUND(MAX(change_percent), 2) as max_change_percent,
+    SUM(volume) as total_volume
+FROM historical_prices_daily
+WHERE date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+GROUP BY date
+ORDER BY date DESC;
+
+-- Symbol coverage summary
+SELECT 
+    'Total symbols in companies' as metric,
+    COUNT(*) as value
+FROM companies
+UNION ALL
+SELECT 
+    'Symbols with historical data' as metric,
+    COUNT(DISTINCT symbol) as value
+FROM historical_prices_daily
+UNION ALL
+SELECT 
+    'S&P 500 symbols' as metric,
+    COUNT(*) as value
+FROM sp500_constituents
+UNION ALL
+SELECT 
+    'S&P 500 symbols with historical data' as metric,
+    COUNT(DISTINCT hpd.symbol) as value
+FROM sp500_constituents sp
+JOIN historical_prices_daily hpd ON sp.symbol = hpd.symbol;

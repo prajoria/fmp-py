@@ -118,7 +118,7 @@ def verify_tables():
     
     required_tables = [
         'companies',
-        'historical_price_full_daily',
+        'historical_prices_daily',
         'fetch_watermarks',
         'fetch_sessions',
         'popular_stocks'

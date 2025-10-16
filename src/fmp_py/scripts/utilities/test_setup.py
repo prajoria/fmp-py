@@ -5,14 +5,13 @@ Test script to verify VS Code test setup is working correctly.
 
 import sys
 import os
+from pathlib import Path
 
-# Add src to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-
+# Use proper module imports instead of path manipulation
 def test_imports():
     """Test that we can import the fmp_py modules."""
     try:
-        from fmp_py.fmp_base import FmpBase
+        from ....fmp_base import FmpBase
         print("✅ Successfully imported FmpBase")
         
         from fmp_py.fmp_chart_data import FmpChartData

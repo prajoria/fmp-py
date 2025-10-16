@@ -4,11 +4,11 @@
 USE fmp_cache;
 
 -- ============================================================================
--- HISTORICAL PRICE FULL DAILY TABLE
+-- HISTORICAL PRICES DAILY TABLE
 -- ============================================================================
 
--- Table for storing comprehensive historical price data (full version)
-CREATE TABLE IF NOT EXISTS historical_price_full_daily (
+-- Table for storing comprehensive historical price data (daily)
+CREATE TABLE IF NOT EXISTS historical_prices_daily (
     symbol VARCHAR(20) NOT NULL,
     date DATE NOT NULL,
     `open` DECIMAL(20, 4),
